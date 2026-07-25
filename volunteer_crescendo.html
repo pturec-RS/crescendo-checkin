@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Volunteer Check-In</title>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary:       #667eea;
+      --primary-dark:  #5568d3;
+      --primary-light: #eef0fd;
+      --background:    #eef0fd;
+      --text:          #1e1e2e;
+      --success:       #22c55e;
+      --danger:        #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(20, 15, 10, 0.75), rgba(20, 15, 10, 0.85)),
+        url('logo/background.jpg');
+      background-size: cover;
+      background-position: center 20%;
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 16px 60px;
+    }
+
+    .brand {
+      width: 100vw;
+      margin-left: calc(-50vw + 50%);
+      margin-bottom: 36px;
+      background: #ffffff;
+    }
+    .brand-logo-img {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 40px 24px 32px;
+    }
+    .brand-logo-img img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+    .brand-bar {
+      height: 50px;
+      background: #1c5aa8;
+      width: 100%;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 460px;
+    }
+    .card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e1e2e;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .card p.sub {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    /* Local mode banner */
+    .mode-banner {
+      display: none;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      padding: 6px 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input[type="email"],
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 16px;
+      color: #1e1e2e;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus,
+    input[type="text"]:focus,
+    input[type="password"]:focus { border-color: #1c5aa8; }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin-top: 16px;
+      background: #1c5aa8;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .btn:hover    { background: #164a8a; }
+    .btn:active   { opacity: 0.9; }
+    .btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    .success-screen { text-align: center; padding: 12px 0 4px; }
+    .success-icon {
+      font-size: 56px;
+      line-height: 1;
+      margin-bottom: 12px;
+      color: var(--success);
+    }
+    .success-screen h2 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #166534;
+      margin-bottom: 8px;
+    }
+    .success-screen .table-info {
+      font-size: 48px;
+      font-weight: 900;
+      color: #1c5aa8;
+      margin: 16px 0 4px;
+      line-height: 1;
+    }
+    .success-screen .table-label {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    .success-screen .room-badge {
+      display: inline-block;
+      background: #1c5aa8;
+      color: #ffc72c;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 6px 18px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    .success-screen .names {
+      font-size: 16px;
+      color: #374151;
+      margin-bottom: 28px;
+      white-space: pre-line;
+      line-height: 1.7;
+    }
+    .btn-reset {
+      background: transparent;
+      border: 2px solid #e5e7eb;
+      color: #6b7280;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-reset:hover { border-color: #9ca3af; color: #374151; }
+    .success-divider { border: none; border-top: 2px solid #e5e7eb; margin: 8px 0; }
+    #successCards .msg { margin-bottom: 40px; }
+
+    .msg {
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .msg-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #emailFields { margin-bottom: 4px; }
+    .email-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .email-row input[type="email"] { flex: 1; }
+    .btn-remove-email {
+      flex-shrink: 0;
+      width: 42px;
+      background: none;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      color: #9ca3af;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-remove-email:hover { border-color: var(--danger); color: var(--danger); }
+    .btn-add-person {
+      display: block;
+      width: 100%;
+      padding: 11px;
+      margin-bottom: 4px;
+      background: transparent;
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      color: #1c5aa8;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .btn-add-person:hover { border-color: #1c5aa8; background: #eaf1fa; }
+
+    /* Results / confirmation view */
+    .found-list {
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .found-item { border-bottom: 1px solid #e5e7eb; }
+    .found-item:last-child { border-bottom: none; }
+    .found-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+    .found-addemail { padding: 0 16px 14px 48px; }
+    .found-addemail input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .found-addemail input:focus { border-color: #1c5aa8; }
+    .found-row.selectable { cursor: pointer; }
+    .found-row.selectable:hover { background: #f9fafb; }
+    .found-row input.name-pick {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      accent-color: #1c5aa8;
+      cursor: pointer;
+    }
+    .found-person { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .found-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e1e2e;
+    }
+    .found-email { font-size: 13px; color: #6b7280; }
+    .found-noemail { font-style: italic; color: #9ca3af; }
+    .btn-back {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      background: none;
+      border: none;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-back:hover { color: #374151; }
+
+    /* Volunteer chrome */
+    .vol-divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 24px 0 18px;
+    }
+    .vol-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .vol-badge {
+      background: #eaf1fa;
+      color: #1c5aa8;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .btn-lock {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .btn-lock:hover { color: var(--danger); }
+
+    #nameFields { margin-bottom: 4px; }
+    .name-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .name-row input { flex: 1; min-width: 0; }
+
+    #pinResult, #result, #nameResult { margin-top: 16px; }
+
+    footer {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="brand">
+    <div class="brand-logo-img">
+      <img src="logo/title.jpg" alt="UMKC Conservatory Crescendo">
+    </div>
+    <div class="brand-bar"></div>
+  </div>
+
+  <div class="card">
+    <div class="mode-banner" id="modeBanner">⚠ LOCAL MODE — check-ins are not saved to the database</div>
+
+    <!-- ============ PIN GATE ============ -->
+    <div id="pinView">
+      <h2>Volunteer Check-In</h2>
+      <p class="sub">Enter the volunteer PIN to continue.</p>
+
+      <label>Volunteer PIN</label>
+      <input type="password" id="pinInput" autocomplete="off" autocapitalize="none"
+             enterkeyhint="go">
+      <button class="btn" id="pinBtn" onclick="handlePinUnlock()">Unlock</button>
+      <div id="pinResult"></div>
+    </div>
+
+    <!-- ============ SEARCH ============ -->
+    <div id="lookupView" style="display:none">
+      <div class="vol-header">
+        <span class="vol-badge">Volunteer mode</span>
+        <button type="button" class="btn-lock" onclick="lockVolunteer()">Lock</button>
+      </div>
+
+      <label>Search By Guest Name</label>
+      <div id="nameFields">
+        <div class="name-row">
+          <input type="text" class="first-name-input" placeholder="First name (optional)"
+                 autocapitalize="words" autocomplete="off">
+          <input type="text" class="last-name-input" placeholder="Last name"
+                 autocapitalize="words" autocomplete="off" enterkeyhint="search">
+        </div>
+      </div>
+      <button type="button" class="btn-add-person" onclick="addNameField()">+ Add another person</button>
+      <button class="btn" id="nameSearchBtn" onclick="handleNameSearch()">Search by Name</button>
+      <div id="nameResult"></div>
+
+      <hr class="vol-divider">
+
+      <label>Or Search By Email</label>
+      <div id="emailFields">
+        <div class="email-row">
+          <input type="email" class="email-input" placeholder="guest@example.com"
+                 autocomplete="off" autocapitalize="none" enterkeyhint="search">
+        </div>
+      </div>
+      <button type="button" class="btn-add-person" onclick="addEmailField()">+ Add another person</button>
+      <button class="btn" id="searchBtn" onclick="handleSearch()">Search by Email</button>
+      <div id="result"></div>
+    </div>
+
+    <!-- ============ CONFIRM ============ -->
+    <div id="resultsView" style="display:none">
+      <h2>Confirm the guest</h2>
+      <p class="sub">Select who is checking in, then press Check In.</p>
+      <div id="resultsCards"></div>
+      <button class="btn" id="confirmBtn" onclick="handleConfirm()">Check In</button>
+      <button type="button" class="btn-back" onclick="resetToStart()">&larr; Start over</button>
+    </div>
+
+    <!-- ============ SUCCESS ============ -->
+    <div id="successView" style="display:none">
+      <div id="successCards"></div>
+      <button class="btn-reset" onclick="resetToStart()">Check In Another Guest &rarr;</button>
+    </div>
+
+    <footer id="footerOrg"></footer>
+  </div>
+
+  <script>
+    // ── Apply brand config ───────────────────────────────────
+    document.documentElement.style.setProperty('--primary',       CONFIG.primaryColor);
+    document.documentElement.style.setProperty('--primary-dark',  CONFIG.primaryDark);
+    document.documentElement.style.setProperty('--primary-light', CONFIG.primaryLight);
+    document.documentElement.style.setProperty('--background',    CONFIG.backgroundColor);
+    document.documentElement.style.setProperty('--text',          CONFIG.textColor);
+    document.documentElement.style.setProperty('--success',       CONFIG.successColor);
+    document.documentElement.style.setProperty('--danger',        CONFIG.dangerColor);
+
+    document.getElementById('footerOrg').textContent = CONFIG.footerText;
+    document.title = CONFIG.orgName + ' — Volunteer Check-In';
+
+    const LOCAL_MODE = CONFIG.dataMode === 'local';
+
+    if (LOCAL_MODE) {
+      document.getElementById('modeBanner').style.display = 'block';
+    }
+
+    // ── Supabase (only initialised in supabase mode) ─────────
+    let db = null;
+    if (!LOCAL_MODE) {
+      db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+    }
+
+    // ── Local-mode record store (shared with admin upload) ───
+    function getLocalRecords() {
+      try {
+        return JSON.parse(localStorage.getItem('localRecords') || '[]');
+      } catch { return []; }
+    }
+    function saveLocalRecords(records) {
+      localStorage.setItem('localRecords', JSON.stringify(records));
+    }
+
+    // =========================================================
+    //  PIN STORAGE
+    //  Kept in localStorage with a timestamp so it survives tab
+    //  and browser closes, but expires after PIN_TTL_HOURS.
+    // =========================================================
+    const PIN_KEY        = 'crescendoVolunteerPin';
+    const PIN_TTL_HOURS  = 12;
+    const PIN_TTL_MS     = PIN_TTL_HOURS * 60 * 60 * 1000;
+    const LOCAL_MODE_PIN = CONFIG.localVolunteerPin || '1234';
+
+    function getStoredPin() {
+      try {
+        const raw = localStorage.getItem(PIN_KEY);
+        if (!raw) return null;
+        const o = JSON.parse(raw);
+        if (!o || !o.pin || !o.ts) return null;
+        if (Date.now() - o.ts > PIN_TTL_MS) {
+          localStorage.removeItem(PIN_KEY);
+          return null;
+        }
+        return o.pin;
+      } catch { return null; }
+    }
+
+    function storePin(pin) {
+      localStorage.setItem(PIN_KEY, JSON.stringify({ pin: pin, ts: Date.now() }));
+    }
+
+    function clearPin() {
+      localStorage.removeItem(PIN_KEY);
+    }
+
+    // =========================================================
+    //  UNLOCK / LOCK
+    // =========================================================
+    async function handlePinUnlock() {
+      const input  = document.getElementById('pinInput');
+      const btn     = document.getElementById('pinBtn');
+      const result  = document.getElementById('pinResult');
+      const pin     = input.value.trim();
+
+      if (pin.length === 0) {
+        result.innerHTML = '<div class="msg msg-error">Please enter the PIN.</div>';
+        return;
+      }
+
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>Checking\u2026';
+      result.innerHTML = '';
+
+      try {
+        let ok;
+        if (LOCAL_MODE) {
+          ok = (pin === LOCAL_MODE_PIN);
+        } else {
+          const { data, error } = await db.rpc('volunteer_pin_check', { p_pin: pin });
+          if (error) {
+            console.error(error);
+            result.innerHTML = '<div class="msg msg-error">Could not reach the database. Check the connection and try again.</div>';
+            return;
+          }
+          ok = (data === true);
+        }
+
+        if (!ok) {
+          result.innerHTML = '<div class="msg msg-error">That PIN is not correct.</div>';
+          input.value = '';
+          input.focus();
+          return;
+        }
+
+        storePin(pin);
+        input.value = '';
+        showLookupView();
+
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Unlock';
+      }
+    }
+
+    function lockVolunteer() {
+      clearPin();
+      resetFields();
+      showPinView();
+    }
+
+    // Called when the server rejects a stored PIN mid-session
+    // (for example if the PIN was rotated).
+    function forceRelock(message) {
+      clearPin();
+      resetFields();
+      showPinView();
+      document.getElementById('pinResult').innerHTML =
+        '<div class="msg msg-error">' + escapeHtml(message) + '</div>';
+    }
+
+    function showPinView() {
+      document.getElementById('pinView').style.display     = 'block';
+      document.getElementById('lookupView').style.display  = 'none';
+      document.getElementById('resultsView').style.display = 'none';
+      document.getElementById('successView').style.display = 'none';
+      document.getElementById('pinInput').focus();
+    }
+
+    function showLookupView() {
+      document.getElementById('pinView').style.display     = 'none';
+      document.getElementById('lookupView').style.display  = 'block';
+      document.getElementById('resultsView').style.display = 'none';
+      document.getElementById('successView').style.display = 'none';
+      document.getElementById('pinResult').innerHTML = '';
+      const firstLast = document.querySelector('.last-name-input');
+      if (firstLast) firstLast.focus();
+    }
+
+    // =========================================================
+    //  HELPERS
+    // =========================================================
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function addEmailField() {
+      const row = document.createElement('div');
+      row.className = 'email-row';
+      row.innerHTML = `
+        <input type="email" class="email-input" placeholder="guest@example.com"
+               autocomplete="off" autocapitalize="none">
+        <button type="button" class="btn-remove-email" onclick="removeEmailField(this)" aria-label="Remove">&times;</button>`;
+      document.getElementById('emailFields').appendChild(row);
+      row.querySelector('input').focus();
+    }
+
+    function removeEmailField(btn) {
+      btn.closest('.email-row').remove();
+    }
+
+    function getEmails() {
+      return Array.from(document.querySelectorAll('.email-input'))
+        .map(i => i.value.trim().toLowerCase())
+        .filter(e => e.length > 0);
+    }
+
+    function addNameField() {
+      const row = document.createElement('div');
+      row.className = 'name-row';
+      row.innerHTML = `
+        <input type="text" class="first-name-input" placeholder="First name (optional)"
+               autocapitalize="words" autocomplete="off">
+        <input type="text" class="last-name-input" placeholder="Last name"
+               autocapitalize="words" autocomplete="off">
+        <button type="button" class="btn-remove-email" onclick="removeNameField(this)" aria-label="Remove">&times;</button>`;
+      document.getElementById('nameFields').appendChild(row);
+      row.querySelector('.first-name-input').focus();
+    }
+
+    function removeNameField(btn) {
+      btn.closest('.name-row').remove();
+    }
+
+    function getNamePairs() {
+      return Array.from(document.querySelectorAll('#nameFields .name-row'))
+        .map(row => ({
+          first: row.querySelector('.first-name-input').value.trim(),
+          last:  row.querySelector('.last-name-input').value.trim()
+        }))
+        .filter(p => p.first.length > 0 || p.last.length > 0);
+    }
+
+    function fullName(r) {
+      return [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || '(no name)';
+    }
+
+    // Which search filled the confirmation screen: 'name' selects by row id,
+    // 'email' selects by email address.
+    let pendingSearchType = 'email';
+
+    // Enter-key support
+    document.getElementById('pinInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handlePinUnlock();
+    });
+    document.getElementById('nameFields').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleNameSearch();
+    });
+    document.getElementById('emailFields').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSearch();
+    });
+
+    // =========================================================
+    //  SEARCH BY NAME
+    // =========================================================
+    async function handleNameSearch() {
+      const pairs  = getNamePairs();
+      const result = document.getElementById('nameResult');
+      const btn    = document.getElementById('nameSearchBtn');
+
+      result.innerHTML = '';
+      document.getElementById('result').innerHTML = '';
+
+      if (pairs.length === 0) {
+        result.innerHTML = '<div class="msg msg-error">Enter a guest\u2019s last name.</div>';
+        return;
+      }
+      if (pairs.some(p => p.last.length < 2)) {
+        result.innerHTML = '<div class="msg msg-error">Enter at least the first two letters of each guest\u2019s last name.</div>';
+        return;
+      }
+
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>Searching\u2026';
+
+      try {
+        const all      = [];
+        const notFound = [];
+        const seen     = new Set();
+
+        // One call per name. The database function takes a single name.
+        for (const p of pairs) {
+          const rows = LOCAL_MODE
+            ? await lookupByNameLocal(p.first, p.last)
+            : await lookupByNameSupabase(p.first, p.last);
+
+          if (rows === null) return;   // error already handled
+
+          const label = [p.first, p.last].filter(Boolean).join(' ');
+          if (rows.length === 0) { notFound.push(label); continue; }
+
+          rows.forEach(r => {
+            const key = (r.id !== undefined && r.id !== null)
+              ? 'id:' + r.id
+              : [(r.first_name || '').toLowerCase().trim(),
+                 (r.last_name  || '').toLowerCase().trim(),
+                 (r.email      || '').toLowerCase().trim()].join('|');
+            if (seen.has(key)) return;
+            seen.add(key);
+            // Tick it automatically only if this name matched exactly one guest.
+            all.push(Object.assign({}, r, { _auto: rows.length === 1 }));
+          });
+        }
+
+        if (all.length === 0) {
+          const list = notFound.map(n => `<strong>${escapeHtml(n)}</strong>`).join(', ');
+          result.innerHTML =
+            `<div class="msg msg-error">No reservation found for ${list}.<br>Check the spelling, or see the check-in desk.</div>`;
+          return;
+        }
+
+        showResultsScreen(all, notFound, 'name');
+
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Search by Name';
+      }
+    }
+
+    async function lookupByNameLocal(first, last) {
+      const records = getLocalRecords();
+      if (records.length === 0) {
+        document.getElementById('nameResult').innerHTML =
+          '<div class="msg msg-error">No registration data loaded. Ask a staff member to load the attendee list in the admin panel.</div>';
+        return null;
+      }
+      const f = first.toLowerCase();
+      const l = last.toLowerCase();
+
+      // Mirrors guest_lookup_by_name(): prefix match, no table_number or room.
+      // Local mode has no database id, so the array position stands in for it.
+      return records
+        .map((r, idx) => Object.assign({}, r, { id: idx }))
+        .filter(r => (r.last_name || '').toLowerCase().trim().startsWith(l))
+        .filter(r => f === '' || (r.first_name || '').toLowerCase().trim().startsWith(f))
+        .sort((a, b) =>
+          (a.last_name || '').localeCompare(b.last_name || '') ||
+          (a.first_name || '').localeCompare(b.first_name || ''))
+        .slice(0, 25)
+        .map(r => ({
+          id:         r.id,
+          first_name: r.first_name,
+          last_name:  r.last_name,
+          email:      r.email,
+          checked_in: !!r.checked_in
+        }));
+    }
+
+    async function lookupByNameSupabase(first, last) {
+      const pin = getStoredPin();
+      if (!pin) {
+        forceRelock('Your volunteer session expired. Please re-enter the PIN.');
+        return null;
+      }
+      const { data, error } = await db.rpc('guest_lookup_by_name', {
+        p_pin:   pin,
+        p_first: first,
+        p_last:  last
+      });
+      if (error) {
+        console.error(error);
+        if (/invalid request/i.test(error.message || '')) {
+          forceRelock('The PIN is no longer valid. Please re-enter it.');
+        } else {
+          document.getElementById('nameResult').innerHTML =
+            '<div class="msg msg-error">Something went wrong. Please try again.</div>';
+        }
+        return null;
+      }
+      return data || [];
+    }
+
+    // =========================================================
+    //  SEARCH BY EMAIL
+    // =========================================================
+    async function handleSearch() {
+      const emails = getEmails();
+      const result = document.getElementById('result');
+      const btn    = document.getElementById('searchBtn');
+
+      result.innerHTML = '';
+      document.getElementById('nameResult').innerHTML = '';
+
+      if (emails.length === 0) {
+        result.innerHTML = '<div class="msg msg-error">Enter at least one email address, or use the name search above.</div>';
+        return;
+      }
+
+      const malformed = emails.filter(e => !e.includes('@'));
+      if (malformed.length > 0) {
+        result.innerHTML = '<div class="msg msg-error">That does not look like an email address. Use the name search above instead.</div>';
+        return;
+      }
+
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>Searching\u2026';
+
+      try {
+        const found = LOCAL_MODE
+          ? await lookupLocal(emails)
+          : await lookupSupabase(emails);
+
+        if (found === null) return;
+
+        const foundEmails = new Set(found.map(r => (r.email || '').toLowerCase().trim()));
+        const notFound    = emails.filter(e => !foundEmails.has(e));
+
+        if (found.length === 0) {
+          const list = emails.map(e => `<strong>${escapeHtml(e)}</strong>`).join(', ');
+          result.innerHTML = `<div class="msg msg-error">No reservation found for ${list}.<br>Try the name search, or see the check-in desk.</div>`;
+          return;
+        }
+
+        showResultsScreen(found, notFound, 'email');
+
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Search by Email';
+      }
+    }
+
+    async function lookupLocal(emails) {
+      const records = getLocalRecords();
+      if (records.length === 0) {
+        document.getElementById('result').innerHTML =
+          '<div class="msg msg-error">No registration data loaded. Ask a staff member to load the attendee list in the admin panel.</div>';
+        return null;
+      }
+      return records
+        .filter(r => emails.includes((r.email || '').toLowerCase().trim()))
+        .map(r => ({
+          first_name: r.first_name,
+          last_name:  r.last_name,
+          email:      r.email,
+          checked_in: !!r.checked_in
+        }));
+    }
+
+    async function lookupSupabase(emails) {
+      const { data, error } = await db.rpc('guest_lookup', { p_emails: emails });
+      if (error) {
+        console.error(error);
+        document.getElementById('result').innerHTML =
+          '<div class="msg msg-error">Something went wrong. Please try again.</div>';
+        return null;
+      }
+      return data || [];
+    }
+
+    // =========================================================
+    //  CONFIRMATION SCREEN
+    //  Selectable rows. Email search pre-selects everything the
+    //  volunteer typed; name search pre-selects only a single
+    //  unambiguous match.
+    // =========================================================
+    function showResultsScreen(found, notFound, searchType) {
+      notFound = notFound || [];
+      pendingSearchType = searchType;
+      const preselectAll = (searchType === 'email');
+
+      let html = '<div class="found-list">';
+      found.forEach((p, i) => {
+        const email = (p.email || '').toLowerCase().trim();
+        const tick  = preselectAll || p._auto;
+        // Name search selects by row id, so guests without an email still work.
+        const value = (searchType === 'name') ? String(p.id) : email;
+        const emailLine = email
+          ? `<span class="found-email">${escapeHtml(p.email)}</span>`
+          : '<span class="found-email found-noemail">no email on file</span>';
+
+        // Offer to capture a missing address. Name search only, since that is
+        // the only path that knows the row id.
+        const addEmail = (!email && searchType === 'name')
+          ? `<div class="found-addemail">
+               <input type="email" class="add-email-input" data-id="${escapeHtml(String(p.id))}"
+                      placeholder="Add email address (optional)"
+                      autocomplete="off" autocapitalize="none" spellcheck="false">
+             </div>`
+          : '';
+
+        html += `
+          <div class="found-item">
+            <label class="found-row selectable">
+              <input type="checkbox" class="name-pick" value="${escapeHtml(value)}"
+                     ${tick ? 'checked' : ''}>
+              <span class="found-person">
+                <span class="found-name">${escapeHtml(fullName(p))}</span>
+                ${emailLine}
+              </span>
+            </label>
+            ${addEmail}
+          </div>`;
+      });
+      html += '</div>';
+
+      if (notFound.length > 0) {
+        const list = notFound.map(e => `<strong>${escapeHtml(e)}</strong>`).join(', ');
+        html += `
+          <div class="msg msg-error" style="text-align:left; margin-top:12px;">
+            No reservation found for ${list}.
+          </div>`;
+      }
+
+      document.getElementById('resultsCards').innerHTML   = html;
+      document.getElementById('pinView').style.display    = 'none';
+      document.getElementById('lookupView').style.display = 'none';
+      document.getElementById('resultsView').style.display = 'block';
+      document.getElementById('successView').style.display = 'none';
+    }
+
+    function getSelectedKeys() {
+      return Array.from(document.querySelectorAll('.name-pick'))
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+    }
+
+    // =========================================================
+    //  CHECK IN  (always records checkin_method = 'volunteer')
+    // =========================================================
+    async function handleConfirm() {
+      const btn  = document.getElementById('confirmBtn');
+      const keys = getSelectedKeys();
+
+      if (keys.length === 0) {
+        const existing = document.getElementById('resultsCards');
+        if (!document.getElementById('pickWarning')) {
+          existing.insertAdjacentHTML('beforeend',
+            '<div class="msg msg-error" id="pickWarning" style="margin-top:12px;">Select at least one guest to check in.</div>');
+        }
+        return;
+      }
+      const warn = document.getElementById('pickWarning');
+      if (warn) warn.remove();
+
+      // Capture any email addresses the volunteer typed in for guests who
+      // had none on file. Only applies to the name path.
+      const newEmails = [];
+      if (pendingSearchType === 'name') {
+        const selected = new Set(keys);
+        document.querySelectorAll('.add-email-input').forEach(inp => {
+          const val = inp.value.trim().toLowerCase();
+          if (val.length === 0) return;
+          if (!selected.has(inp.dataset.id)) return;   // ignore unticked rows
+          newEmails.push({ id: Number(inp.dataset.id), email: val, el: inp });
+        });
+
+        const bad = newEmails.find(n => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(n.email));
+        if (bad) {
+          bad.el.focus();
+          if (!document.getElementById('pickWarning')) {
+            document.getElementById('resultsCards').insertAdjacentHTML('beforeend',
+              '<div class="msg msg-error" id="pickWarning" style="margin-top:12px;">That email address does not look right. Fix it or clear the box.</div>');
+          }
+          return;
+        }
+      }
+
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>Checking in\u2026';
+
+      try {
+        for (const n of newEmails) {
+          const ok = LOCAL_MODE
+            ? await setEmailLocal(n.id, n.email)
+            : await setEmailSupabase(n.id, n.email);
+          if (ok === null) return;   // PIN failure already handled
+        }
+
+        let rows;
+        if (pendingSearchType === 'name') {
+          const ids = keys.map(Number);
+          rows = LOCAL_MODE
+            ? await checkinByIdLocal(ids)
+            : await checkinByIdSupabase(ids);
+        } else {
+          rows = LOCAL_MODE
+            ? await checkinVolunteerLocal(keys)
+            : await checkinVolunteerSupabase(keys);
+        }
+
+        if (rows === null) return;
+
+        let notFound = [];
+        if (pendingSearchType === 'email') {
+          const foundEmails = new Set(rows.map(r => (r.email || '').toLowerCase().trim()));
+          notFound = keys.filter(e => !foundEmails.has(e));
+        }
+
+        showSuccessScreen(rows, 'Checked in!', notFound);
+
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Check In';
+      }
+    }
+
+    async function setEmailLocal(id, email) {
+      const records = getLocalRecords();
+      const r = records[id];
+      if (!r) return false;
+      // Only fills a blank, matching guest_set_email().
+      if ((r.email || '').trim() !== '') return false;
+      r.email = email;
+      saveLocalRecords(records);
+      return true;
+    }
+
+    async function setEmailSupabase(id, email) {
+      const pin = getStoredPin();
+      if (!pin) {
+        forceRelock('Your volunteer session expired. Please re-enter the PIN.');
+        return null;
+      }
+      const { data, error } = await db.rpc('guest_set_email', {
+        p_pin:   pin,
+        p_id:    id,
+        p_email: email
+      });
+      if (error) {
+        console.error(error);
+        if (/invalid request/i.test(error.message || '')) {
+          forceRelock('The PIN is no longer valid. Please re-enter it.');
+          return null;
+        }
+        // A failed save must not block the check-in.
+        return false;
+      }
+      return data === true;
+    }
+
+    async function checkinByIdLocal(ids) {
+      const records = getLocalRecords();
+      const now = new Date().toISOString();
+      const matched = [];
+      ids.forEach(i => {
+        const r = records[i];
+        if (!r) return;
+        if (!r.checked_in) {
+          r.checked_in     = true;
+          r.check_in_time  = now;
+          r.checkin_method = 'volunteer';
+        }
+        matched.push(r);
+      });
+      saveLocalRecords(records);
+      return matched;
+    }
+
+    async function checkinByIdSupabase(ids) {
+      const pin = getStoredPin();
+      if (!pin) {
+        forceRelock('Your volunteer session expired. Please re-enter the PIN.');
+        return null;
+      }
+      const { data, error } = await db.rpc('guest_checkin_by_id', {
+        p_pin: pin,
+        p_ids: ids
+      });
+      if (error) {
+        console.error(error);
+        if (/invalid request/i.test(error.message || '')) {
+          forceRelock('The PIN is no longer valid. Please re-enter it.');
+        } else {
+          document.getElementById('resultsCards').insertAdjacentHTML('beforeend',
+            '<div class="msg msg-error" style="margin-top:12px;">Something went wrong. Please try again.</div>');
+        }
+        return null;
+      }
+      return data || [];
+    }
+
+    async function checkinVolunteerLocal(emails) {
+      const records = getLocalRecords();
+      const matched = records.filter(r => emails.includes((r.email || '').toLowerCase().trim()));
+      const now = new Date().toISOString();
+      matched.forEach(r => {
+        if (!r.checked_in) {
+          r.checked_in     = true;
+          r.check_in_time  = now;
+          r.checkin_method = 'volunteer';
+        }
+      });
+      saveLocalRecords(records);
+      return matched;
+    }
+
+    async function checkinVolunteerSupabase(emails) {
+      const pin = getStoredPin();
+      if (!pin) {
+        forceRelock('Your volunteer session expired. Please re-enter the PIN.');
+        return null;
+      }
+      const { data, error } = await db.rpc('guest_checkin_volunteer', {
+        p_pin:    pin,
+        p_emails: emails
+      });
+      if (error) {
+        console.error(error);
+        if (/invalid request/i.test(error.message || '')) {
+          forceRelock('The PIN is no longer valid. Please re-enter it.');
+        } else {
+          document.getElementById('resultsCards').insertAdjacentHTML('beforeend',
+            '<div class="msg msg-error" style="margin-top:12px;">Something went wrong. Please try again.</div>');
+        }
+        return null;
+      }
+      return data || [];
+    }
+
+    // =========================================================
+    //  SUCCESS SCREEN
+    // =========================================================
+    function showSuccessScreen(attendees, heading, notFound) {
+      notFound = notFound || [];
+      const groups = {};
+      attendees.forEach(a => {
+        if (!groups[a.table_number]) groups[a.table_number] = { room: a.room || '', people: [] };
+        groups[a.table_number].people.push(a);
+      });
+
+      const tableNums = Object.keys(groups);
+      let html = '';
+      tableNums.forEach((table, i) => {
+        const group = groups[table];
+        const names = group.people.map(a => fullName(a)).join('\n');
+        const roomBadge = group.room
+          ? `<div class="room-badge">${escapeHtml(group.room)} Room</div>`
+          : '';
+        if (i > 0) html += '<hr class="success-divider">';
+        html += `
+          <div class="success-screen">
+            <div class="success-icon">&#10003;</div>
+            <h2>${escapeHtml(heading)}</h2>
+            <div class="table-label">Table</div>
+            <div class="table-info">${escapeHtml(String(table))}</div>
+            ${roomBadge}
+            <div class="names">${escapeHtml(names)}</div>
+          </div>`;
+      });
+
+      if (notFound.length > 0) {
+        const list = notFound.map(e => `<strong>${escapeHtml(e)}</strong>`).join(', ');
+        html += `
+          <hr class="success-divider">
+          <div class="msg msg-error" style="text-align:left; margin-top:16px;">
+            No reservation found for ${list}.
+          </div>`;
+      }
+
+      document.getElementById('successCards').innerHTML    = html;
+      document.getElementById('pinView').style.display     = 'none';
+      document.getElementById('lookupView').style.display  = 'none';
+      document.getElementById('resultsView').style.display = 'none';
+      document.getElementById('successView').style.display = 'block';
+    }
+
+    // =========================================================
+    //  RESET
+    // =========================================================
+    function resetFields() {
+      document.getElementById('nameFields').innerHTML = `
+        <div class="name-row">
+          <input type="text" class="first-name-input" placeholder="First name (optional)"
+                 autocapitalize="words" autocomplete="off">
+          <input type="text" class="last-name-input" placeholder="Last name"
+                 autocapitalize="words" autocomplete="off" enterkeyhint="search">
+        </div>`;
+      document.getElementById('emailFields').innerHTML = `
+        <div class="email-row">
+          <input type="email" class="email-input" placeholder="guest@example.com"
+                 autocomplete="off" autocapitalize="none" enterkeyhint="search">
+        </div>`;
+      document.getElementById('nameResult').innerHTML   = '';
+      document.getElementById('result').innerHTML       = '';
+      document.getElementById('resultsCards').innerHTML = '';
+      document.getElementById('successCards').innerHTML = '';
+    }
+
+    function resetToStart() {
+      resetFields();
+      if (getStoredPin()) {
+        showLookupView();
+      } else {
+        forceRelock('Your volunteer session expired. Please re-enter the PIN.');
+      }
+    }
+
+    // =========================================================
+    //  BOOT — skip the PIN screen if this device is still unlocked
+    // =========================================================
+    if (getStoredPin()) {
+      showLookupView();
+    } else {
+      showPinView();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guest Check-In</title>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary:       #667eea;
+      --primary-dark:  #5568d3;
+      --primary-light: #eef0fd;
+      --background:    #eef0fd;
+      --text:          #1e1e2e;
+      --success:       #22c55e;
+      --danger:        #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(20, 15, 10, 0.75), rgba(20, 15, 10, 0.85)),
+        url('logo/background.jpg');
+      background-size: cover;
+      background-position: center 20%;
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 16px 60px;
+    }
+
+    .brand {
+      width: 100vw;
+      margin-left: calc(-50vw + 50%);
+      margin-bottom: 36px;
+      background: #ffffff;
+    }
+    .brand-logo-img {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 40px 24px 32px;
+    }
+    .brand-logo-img img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+    .brand-bar {
+      height: 50px;
+      background: #1c5aa8;
+      width: 100%;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 460px;
+    }
+    .card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e1e2e;
+      margin-bottom: 8px;
+    }
+    #lookupView h2,
+    #resultsView h2 {
+      text-align: center;
+    }
+    #lookupView p.sub,
+    #resultsView p.sub {
+      text-align: center;
+    }
+    .card p.sub {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    /* Local mode banner */
+    .mode-banner {
+      display: none;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      padding: 6px 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input[type="email"] {
+      width: 100%;
+      padding: 13px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 16px;
+      color: #1e1e2e;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus { border-color: var(--primary); }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin-top: 16px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .btn:hover  { background: var(--primary-dark); }
+    .btn:active { opacity: 0.9; }
+    .btn:disabled { background: #d1d5db; cursor: not-allowed; }
+    #searchBtn, #confirmBtn { background: #1c5aa8; }
+    #searchBtn:hover, #confirmBtn:hover { background: #164a8a; }
+    #searchBtn:disabled, #confirmBtn:disabled { background: #d1d5db; }
+
+    .success-screen { text-align: center; padding: 12px 0 4px; }
+    .success-icon {
+      font-size: 56px;
+      line-height: 1;
+      margin-bottom: 12px;
+      color: var(--success);
+    }
+    .success-screen h2 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #166534;
+      margin-bottom: 8px;
+    }
+    .success-screen .table-info {
+      font-size: 48px;
+      font-weight: 900;
+      color: #1c5aa8;
+      margin: 16px 0 4px;
+      line-height: 1;
+    }
+    .success-screen .table-label {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    .success-screen .room-badge {
+      display: inline-block;
+      background: #1c5aa8;
+      color: #ffc72c;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 6px 18px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    .success-screen .names {
+      font-size: 16px;
+      color: #374151;
+      margin-bottom: 28px;
+      white-space: pre-line;
+      line-height: 1.7;
+    }
+    .btn-reset {
+      background: transparent;
+      border: 2px solid #e5e7eb;
+      color: #6b7280;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-reset:hover { border-color: #9ca3af; color: #374151; }
+    .success-divider { border: none; border-top: 2px solid #e5e7eb; margin: 8px 0; }
+    #successCards .msg { margin-bottom: 40px; }
+
+    #result { margin-top: 20px; }
+    .msg {
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+    .msg-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .msg-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #emailFields { margin-bottom: 4px; }
+    .email-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .email-row input[type="email"] { flex: 1; }
+    .btn-remove-email {
+      flex-shrink: 0;
+      width: 42px;
+      background: none;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      color: #9ca3af;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-remove-email:hover { border-color: var(--danger); color: var(--danger); }
+    .btn-add-person {
+      display: block;
+      width: 100%;
+      padding: 11px;
+      margin-bottom: 4px;
+      background: transparent;
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      color: #1c5aa8;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .btn-add-person:hover { border-color: #1c5aa8; background: #eaf1fa; }
+
+    /* Results / confirmation view */
+    .found-list {
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .found-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .found-row:last-child { border-bottom: none; }
+    .found-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e1e2e;
+    }
+    .already-badge {
+      flex-shrink: 0;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .btn-back {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      background: none;
+      border: none;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-back:hover { color: #374151; }
+
+    footer {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: center;
+    }
+    /* ── Volunteer name search ──────────────────────────────── */
+    .vol-divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 24px 0 18px;
+    }
+    .btn-volunteer-link {
+      display: block;
+      width: 100%;
+      margin-top: 22px;
+      padding: 10px;
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-volunteer-link:hover { color: #1c5aa8; }
+
+    .vol-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .vol-badge {
+      background: #eaf1fa;
+      color: #1c5aa8;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .btn-lock {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .btn-lock:hover { color: var(--danger); }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 16px;
+      color: #1e1e2e;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus { border-color: #1c5aa8; }
+
+    .name-row { display: flex; gap: 8px; }
+    .name-row input { flex: 1; }
+
+    #nameSearchBtn, #pinBtn { background: #1c5aa8; }
+    #nameSearchBtn:hover, #pinBtn:hover { background: #164a8a; }
+    #nameSearchBtn:disabled, #pinBtn:disabled { background: #d1d5db; }
+
+    #nameResult, #pinResult { margin-top: 16px; }
+
+    .found-row.selectable { cursor: pointer; }
+    .found-row.selectable:hover { background: #f9fafb; }
+    .found-row input.name-pick {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+      accent-color: #1c5aa8;
+      cursor: pointer;
+    }
+    .found-person { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .found-email { font-size: 13px; color: #6b7280; }
+  </style>
+</head>
+<body>
+
+  <div class="brand">
+    <div class="brand-logo-img">
+      <img src="logo/title.jpg" alt="UMKC Conservatory Crescendo">
+    </div>
+    <div class="brand-bar"></div>
+  </div>
+
+  <div class="card">
+    <div class="mode-banner" id="modeBanner">⚠ LOCAL MODE — check-ins are not saved to the database</div>
+
+    <div id="lookupView">
+      <h2>Welcome!</h2>
+      <p class="sub">Please enter your email address to begin check in.</p>
+
+      <label>Email Address</label>
+      <div id="emailFields">
+        <div class="email-row">
+          <input type="email" class="email-input" placeholder="you@example.com"
+                 autocomplete="email" autocapitalize="none">
+        </div>
+      </div>
+      <button type="button" class="btn-add-person" onclick="addEmailField()">+ Add another person</button>
+      <button class="btn" id="searchBtn" onclick="handleSearch()">Search</button>
+      <div id="result"></div>
+    </div>
+
+    <div id="resultsView" style="display:none">
+      <h2>Please confirm the guest name</h2>
+      <p class="sub">Click the check-in button for your table assignment.</p>
+      <div id="resultsCards"></div>
+      <button class="btn" id="confirmBtn" onclick="handleConfirm()">Check In</button>
+      <button type="button" class="btn-back" onclick="resetToStart()">&larr; Start over</button>
+    </div>
+
+    <div id="successView" style="display:none">
+      <div id="successCards"></div>
+      <button class="btn-reset" onclick="resetToStart()">Check In Another Guest &rarr;</button>
+    </div>
+
+    <footer id="footerOrg"></footer>
+  </div>
+
+  <script>
+    // ── Apply brand config ───────────────────────────────────
+    document.documentElement.style.setProperty('--primary',       CONFIG.primaryColor);
+    document.documentElement.style.setProperty('--primary-dark',  CONFIG.primaryDark);
+    document.documentElement.style.setProperty('--primary-light', CONFIG.primaryLight);
+    document.documentElement.style.setProperty('--background',    CONFIG.backgroundColor);
+    document.documentElement.style.setProperty('--text',          CONFIG.textColor);
+    document.documentElement.style.setProperty('--success',       CONFIG.successColor);
+    document.documentElement.style.setProperty('--danger',        CONFIG.dangerColor);
+
+    document.getElementById('footerOrg').textContent = CONFIG.footerText;
+    document.title = CONFIG.orgName + ' — Check-In';
+
+    const LOCAL_MODE = CONFIG.dataMode === 'local';
+
+    // Show banner if local mode
+    if (LOCAL_MODE) {
+      document.getElementById('modeBanner').style.display = 'block';
+    }
+
+    // ── Supabase (only initialised in supabase mode) ─────────
+    let db = null;
+    if (!LOCAL_MODE) {
+      db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+    }
+
+    // ── In-memory store for local mode ───────────────────────
+    // Populated by admin.html upload; shared via localStorage key "localRecords"
+    function getLocalRecords() {
+      try {
+        return JSON.parse(localStorage.getItem('localRecords') || '[]');
+      } catch { return []; }
+    }
+    function saveLocalRecords(records) {
+      localStorage.setItem('localRecords', JSON.stringify(records));
+    }
+
+    document.getElementById('emailFields').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSearch();
+    });
+
+    // Emails carried from the search step to the check-in step.
+    let pendingEmails = [];
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    // -- Multi-email helpers ----------------------------------
+    function addEmailField() {
+      const row = document.createElement('div');
+      row.className = 'email-row';
+      row.innerHTML = `
+        <input type="email" class="email-input" placeholder="guest@example.com"
+               autocomplete="email" autocapitalize="none">
+        <button type="button" class="btn-remove-email" onclick="removeEmailField(this)" aria-label="Remove">&times;</button>`;
+      document.getElementById('emailFields').appendChild(row);
+      row.querySelector('input').focus();
+    }
+
+    function removeEmailField(btn) {
+      btn.closest('.email-row').remove();
+    }
+
+    function getEmails() {
+      return Array.from(document.querySelectorAll('.email-input'))
+        .map(i => i.value.trim().toLowerCase())
+        .filter(e => e.length > 0);
+    }
+
+    // ========================================================
+    //  STEP 1 - SEARCH
+    //  Returns names and check-in status only. No table, no room.
+    // ========================================================
+    async function handleSearch() {
+      const emails = getEmails();
+      const result = document.getElementById('result');
+      const btn    = document.getElementById('searchBtn');
+
+      if (emails.length === 0) {
+        result.innerHTML = '<div class="msg msg-error">Please enter at least one email address.</div>';
+        return;
+      }
+      // Anything without an "@" is not an email. Do not search.
+      if (emails.some(e => !e.includes('@'))) {
+        result.innerHTML = '<div class="msg msg-error">Please provide an email address to search.</div>';
+        return;
+      }
+
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>Searching\u2026';
+      result.innerHTML = '';
+
+      try {
+        const found = LOCAL_MODE
+          ? await lookupLocal(emails)
+          : await lookupSupabase(emails);
+
+        if (found === null) return;   // error already rendered
+
+        const foundEmails = new Set(found.map(r => (r.email || '').toLowerCase().trim()));
+        const notFound    = emails.filter(e => !foundEmails.has(e));
+
+        if (found.length === 0) {
+          const list = emails.map(e => `<strong>${escapeHtml(e)}</strong>`).join(', ');
+          result.innerHTML = `<div class="msg msg-error">${list} not found or no email provided.<br>Please proceed to registration to check-in by name.</div>`;
+          return;
+        }
+
+        pendingEmails = emails;
+        showResultsScreen(found, notFound);
+
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Search';
+      }
+    }
+
+    async function lookupLocal(emails) {
+      const records = getLocalRecords();
+      if (records.length === 0) {
+        document.getElementById('result').innerHTML =
+          '<div class="msg msg-error">No registration data loaded. Please ask a staff member to load the attendee list in the admin panel.</div>';
+        return null;
+      }
+      // Mirrors guest_lookup(): name + status only, no table_number or room.
+      return records
+        .filter(r => emails.includes((r.email || '').toLowerCase().trim()))
+        .map(r => ({
+          first_name: r.first_name,
+          last_name:  r.last_name,
+          email:      r.email,
+          checked_in: !!r.checked_in
+        }));
+    }
+
+    async function lookupSupabase(emails) {
+      const { data, error } = await db.rpc('guest_lookup', { p_emails: emails });
+      if (error) {
+        console.error(error);
+        document.getElementById('result').innerHTML =
+          '<div class="msg msg-error">Something went wrong. Please try again or see a staff member.</div>';
+        return null;
+      }
+      return data || [];
+    }
+
+    function showResultsScreen(found, notFound) {
+      let html = '<div class="found-list">';
+      found.forEach(p => {
+        const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email;
+        html += `<div class="found-row"><span class="found-name">${escapeHtml(name)}</span></div>`;
+      });
+      html += '</div>';
+
+      if (notFound.length > 0) {
+        const list = notFound.map(e => `<strong>${escapeHtml(e)}</strong>`).join(', ');
+        html += `
+          <div class="msg msg-error" style="text-align:left; margin-top:12px;">
+            ${list} not found or no email provided.<br>Please proceed to registration to check-in by name.
+          </div>`;
+      }
+
+      document.getElementById('resultsCards').innerHTML  = html;
+      document.getElementById('lookupView').style.display  = 'none';
+      document.getElementById('resultsView').style.display = 'block';
+    }
+
+    // ========================================================
+    //  STEP 2 - CHECK IN
+    //  Re-matches the same emails server-side. Returns table + room.
+    // ========================================================
+    async function handleConfirm() {
+      const btn = document.getElementById('confirmBtn');
+      btn.disabled  = true;
+      btn.innerHTML = '<span class="spinner"></span>Checking in\u2026';
+
+      try {
+        const rows = LOCAL_MODE
+          ? await checkinLocal(pendingEmails)
+          : await checkinSupabase(pendingEmails);
+
+        if (rows === null) return;   // error already rendered
+
+        const foundEmails = new Set(rows.map(r => (r.email || '').toLowerCase().trim()));
+        const notFound    = pendingEmails.filter(e => !foundEmails.has(e));
+
+        showSuccessScreen(rows, "You're checked in!", notFound);
+
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Check In';
+      }
+    }
+
+    async function checkinLocal(emails) {
+      const records = getLocalRecords();
+      const matched = records.filter(r => emails.includes((r.email || '').toLowerCase().trim()));
+      const now = new Date().toISOString();
+      matched.forEach(r => {
+        if (!r.checked_in) {
+          r.checked_in     = true;
+          r.check_in_time  = now;
+          r.checkin_method = 'self';
+        }
+      });
+      saveLocalRecords(records);
+      return matched;
+    }
+
+    async function checkinSupabase(emails) {
+      const { data, error } = await db.rpc('guest_checkin', { p_emails: emails });
+      if (error) {
+        console.error(error);
+        document.getElementById('resultsCards').innerHTML +=
+          '<div class="msg msg-error" style="margin-top:12px;">Something went wrong. Please try again or see a staff member.</div>';
+        return null;
+      }
+      return data || [];
+    }
+
+    // ========================================================
+    //  SUCCESS SCREEN  (unchanged)
+    // ========================================================
+    function showSuccessScreen(attendees, heading, notFound) {
+      notFound = notFound || [];
+      const groups = {};
+      attendees.forEach(a => {
+        if (!groups[a.table_number]) groups[a.table_number] = { room: a.room || '', people: [] };
+        groups[a.table_number].people.push(a);
+      });
+
+      const tableNums = Object.keys(groups);
+      let html = '';
+      tableNums.forEach((table, i) => {
+        const group = groups[table];
+        const names = group.people
+          .map(a => [a.first_name, a.last_name].filter(Boolean).join(' '))
+          .join('\n');
+        const roomBadge = group.room
+          ? `<div class="room-badge">${group.room} Room</div>`
+          : '';
+        if (i > 0) html += '<hr class="success-divider">';
+        html += `
+          <div class="success-screen">
+            <div class="success-icon">&#10003;</div>
+            <h2>${heading}</h2>
+            <div class="table-label">Your Table</div>
+            <div class="table-info">${table}</div>
+            ${roomBadge}
+            <div class="names">${names}</div>
+          </div>`;
+      });
+
+      if (notFound.length > 0) {
+        const list = notFound.map(e => `<strong>${escapeHtml(e)}</strong>`).join(', ');
+        html += `
+          <hr class="success-divider">
+          <div class="msg msg-error" style="text-align:left; margin-top:16px;">
+            ${list} not found or no email provided.<br>Please proceed to registration to check-in by name.
+          </div>`;
+      }
+
+      document.getElementById('successCards').innerHTML = html;
+      document.getElementById('lookupView').style.display  = 'none';
+      document.getElementById('resultsView').style.display = 'none';
+      document.getElementById('successView').style.display = 'block';
+    }
+
+    function resetToStart() {
+      pendingEmails = [];
+      document.getElementById('emailFields').innerHTML = `
+        <div class="email-row">
+          <input type="email" class="email-input" placeholder="you@example.com"
+                 autocomplete="email" autocapitalize="none">
+        </div>`;
+      document.getElementById('result').innerHTML       = '';
+      document.getElementById('resultsCards').innerHTML = '';
+      document.getElementById('lookupView').style.display  = 'block';
+      document.getElementById('resultsView').style.display = 'none';
+      document.getElementById('successView').style.display = 'none';
+      document.querySelector('.email-input').focus();
+    }
+  </script>
+</body>
+</html>

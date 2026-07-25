@@ -1,0 +1,9 @@
+﻿PWs/
+Data/
+Archive/
+.md files/
+.vscode/
+.claude/
+~$*
+*.docx
+*.xlsx

@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Check-In Dashboard</title>
+  <script src="config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary:       #667eea;
+      --primary-dark:  #5568d3;
+      --primary-light: #eef0fd;
+      --background:    #f3f4f6;
+      --text:          #1e1e2e;
+      --success:       #22c55e;
+      --danger:        #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background:
+        linear-gradient(rgba(20, 15, 10, 0.75), rgba(20, 15, 10, 0.85)),
+        url('logo/background.jpg');
+      background-size: cover;
+      background-position: center 20%;
+      background-attachment: fixed;
+      color: var(--text);
+      padding: 24px 16px 60px;
+    }
+
+    .page { max-width: 1100px; margin: 0 auto; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .header img { height: 48px; object-fit: contain; display: block; }
+    .header-text h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1e1e2e;
+      letter-spacing: -0.5px;
+    }
+    .header-text p { font-size: 16px; font-weight: 700; color: #1e1e2e; margin-top: 2px; }
+    .header-right { margin-left: auto; font-size: 13px; color: #9ca3af; }
+    #lastRefresh  { color: #6b7280; font-weight: 600; }
+
+    /* Mode banner */
+    .mode-banner {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    #alerts { margin-bottom: 16px; }
+    .alert {
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 10px;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+    .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert-info    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px 22px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .stat-card .label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+    .stat-card .value {
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1;
+      color: #1e1e2e;
+    }
+    .stat-card.s-checked .value { color: var(--success); }
+    .stat-card.s-pending .value { color: var(--danger); }
+    .stat-card.s-rate    .value { color: #1c5aa8; }
+
+    .panel {
+      background: #fff;
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .panel h2 { font-size: 16px; font-weight: 700; color: #1e1e2e; margin-bottom: 16px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 11px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      margin-right: 10px;
+      margin-bottom: 4px;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--primary);  color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-success { background: var(--success);  color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-danger  { background: var(--danger);   color: #fff; }
+    .btn-danger:hover  { background: #dc2626; }
+    .btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    .upload-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    input[type="file"] { display: none; }
+    .file-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 11px 20px;
+      background: #1c5aa8;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      transition: background 0.2s;
+    }
+    .file-label:hover { background: #164785; }
+    .file-name { font-size: 13px; color: #6b7280; }
+
+    .list-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .search-input {
+      padding: 10px 14px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1e1e2e;
+      width: 260px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    .search-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .search-wrap .search-input {
+      padding-right: 38px;
+    }
+    .search-clear {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: none;
+      color: var(--danger);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      display: none;
+    }
+    .search-clear:hover { color: #dc2626; }
+    .filter-tabs { display: flex; gap: 6px; }
+    .ftab {
+      padding: 8px 16px;
+      background: #f3f4f6;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      transition: all 0.15s;
+    }
+    .ftab.active { background: #1c5aa8; color: #fff; border-color: #1c5aa8; }
+    .ftab:hover:not(.active) { border-color: #9ca3af; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 11px 14px;
+      background: #f9fafb;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      text-align: left;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    tbody td {
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #374151;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    tbody tr:hover td { background: #fafafa; }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 11px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge-in  { background: #dcfce7; color: #166534; }
+    .badge-out { background: #fee2e2; color: #991b1b; }
+
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: #9ca3af;
+      font-size: 15px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar-wrap {
+      background: #e5e7eb;
+      border-radius: 99px;
+      height: 8px;
+      margin-top: 12px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 99px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    @media (max-width: 768px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .search-input { width: 100%; }
+      .list-controls { flex-direction: column; align-items: stretch; }
+      .filter-tabs { flex-wrap: wrap; }
+    }
+    @media (max-width: 480px) {
+      .stats { grid-template-columns: 1fr; }
+    }
+    footer { margin-top: 32px; font-size: 12px; color: #9ca3af; text-align: center; }
+    /* ── Staff login gate ─────────────────────────────────── */
+    #loginOverlay {
+      position: fixed;
+      inset: 0;
+      background: #eef0fd;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+    }
+    #loginOverlay.show { display: flex; }
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .login-card img { display: block; max-width: 100%; margin-bottom: 20px; }
+    .login-card h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+    .login-card label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .login-card input {
+      width: 100%;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+    .login-card input:focus { border-color: var(--primary); }
+    .login-card .btn { width: 100%; }
+    #loginResult { margin-top: 14px; }
+    .login-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+    .btn-signout {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+      margin-left: 12px;
+    }
+    .btn-signout:hover { color: var(--danger); }
+  </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+  <div class="login-card">
+    <img src="logo/title.jpg" alt="UMKC Conservatory Crescendo">
+    <h2>Staff Sign In</h2>
+    <label for="loginEmail">Email</label>
+    <input type="email" id="loginEmail" autocomplete="username" autocapitalize="none">
+    <label for="loginPassword">Password</label>
+    <input type="password" id="loginPassword" autocomplete="current-password">
+    <button class="btn btn-primary" id="loginBtn" onclick="handleLogin()">Sign In</button>
+    <div id="loginResult"></div>
+  </div>
+</div>
+
+<div class="page" id="pageWrap">
+
+  <div class="header">
+    <img id="logoImg" src="logo/title.jpg" alt="UMKC Conservatory Crescendo">
+    <div class="header-text">
+      <p>Staff Check-In Dashboard</p>
+    </div>
+    <div class="header-right" id="refreshInfo">
+      Auto-refresh &nbsp;|&nbsp; Last updated: <span id="lastRefresh">—</span>
+      <button type="button" class="btn-signout" id="signOutBtn" onclick="handleSignOut()"
+              style="display:none">Sign out</button>
+    </div>
+  </div>
+
+  <div class="mode-banner" id="modeBanner">
+    ⚠ LOCAL MODE — data is stored in browser memory only. Switch <code>dataMode</code> to <code>"supabase"</code> in config.js to go live.
+  </div>
+
+  <div id="alerts"></div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Total Registrations</div>
+      <div class="value" id="statTotal">—</div>
+    </div>
+    <div class="stat-card s-checked">
+      <div class="label">Checked In</div>
+      <div class="value" id="statIn">—</div>
+    </div>
+    <div class="stat-card s-pending">
+      <div class="label">Not Checked In</div>
+      <div class="value" id="statOut">—</div>
+    </div>
+    <div class="stat-card s-rate">
+      <div class="label">Check-In Rate</div>
+      <div class="value" id="statRate">—</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Upload Attendee Spreadsheet</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:14px" id="uploadDesc">
+      Upload your registration spreadsheet to load attendees. Uploading will replace all existing records.
+    </p>
+    <div class="upload-row">
+      <label class="file-label" for="fileInput">&#8593; Choose File</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      <span class="file-name" id="fileName">No file chosen</span>
+    </div>
+    <div class="progress-bar-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Export &amp; Reset</h2>
+    <button class="btn btn-success" id="downloadBtn" disabled onclick="downloadFile()">
+      &#8595; Download Updated Spreadsheet
+    </button>
+    <button class="btn btn-danger" id="resetBtn" disabled onclick="resetData()">
+      &#9888; Reset All Data
+    </button>
+  </div>
+
+  <div class="panel">
+    <h2>Attendee List</h2>
+    <div class="list-controls">
+      <div class="search-wrap">
+        <input class="search-input" id="searchInput" type="text"
+               placeholder="Search name or email…" oninput="renderTable()">
+        <button type="button" class="search-clear" id="searchClear"
+                onclick="clearSearch()" aria-label="Clear search">&times;</button>
+      </div>
+      <div class="filter-tabs">
+        <button class="ftab active" data-filter="all"         onclick="setFilter(this)">All</button>
+        <button class="ftab"        data-filter="checked-in"  onclick="setFilter(this)">Checked In</button>
+        <button class="ftab"        data-filter="not-checked" onclick="setFilter(this)">Not Checked In</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div id="attendeeList"><div class="empty">No data loaded yet.</div></div>
+    </div>
+  </div>
+
+  <footer id="footerOrg"></footer>
+</div>
+
+<script>
+  // ── Apply brand config ─────────────────────────────────────
+  document.documentElement.style.setProperty('--primary',       CONFIG.primaryColor);
+  document.documentElement.style.setProperty('--primary-dark',  CONFIG.primaryDark);
+  document.documentElement.style.setProperty('--primary-light', CONFIG.primaryLight);
+  document.documentElement.style.setProperty('--background',    CONFIG.backgroundColor);
+  document.documentElement.style.setProperty('--text',          CONFIG.textColor);
+  document.documentElement.style.setProperty('--success',       CONFIG.successColor);
+  document.documentElement.style.setProperty('--danger',        CONFIG.dangerColor);
+
+  document.getElementById('footerOrg').textContent   = CONFIG.footerText;
+  document.title = CONFIG.orgName + ' — Admin';
+
+ 
+  const LOCAL_MODE = CONFIG.dataMode === 'local';
+
+  if (LOCAL_MODE) {
+    document.getElementById('modeBanner').style.display = 'block';
+    document.getElementById('refreshInfo').style.display = 'none';
+    document.getElementById('uploadDesc').textContent =
+      'Upload your registration CSV or Excel file. Data is stored in browser memory — no Supabase connection required.';
+  }
+
+  // ── Supabase (supabase mode only) ──────────────────────────
+  let db = null;
+  if (!LOCAL_MODE) {
+    db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+  }
+
+  // ── State ──────────────────────────────────────────────────
+  let records      = [];
+  let activeFilter = 'all';
+
+  // ── localStorage helpers (local mode) ─────────────────────
+  function getLocalRecords() {
+    try { return JSON.parse(localStorage.getItem('localRecords') || '[]'); } catch { return []; }
+  }
+  function saveLocalRecords(data) {
+    localStorage.setItem('localRecords', JSON.stringify(data));
+  }
+
+  // ── Alerts ─────────────────────────────────────────────────
+  function showAlert(type, message) {
+    const el = document.createElement('div');
+    el.className   = `alert alert-${type}`;
+    el.textContent = message;
+    document.getElementById('alerts').appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  }
+
+  // ── Stats ──────────────────────────────────────────────────
+  function updateStats() {
+    const total   = records.length;
+    const checked = records.filter(r => r.checked_in).length;
+    const pending = total - checked;
+    const rate    = total > 0 ? Math.round((checked / total) * 100) : 0;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statIn').textContent    = checked;
+    document.getElementById('statOut').textContent   = pending;
+    document.getElementById('statRate').textContent  = rate + '%';
+  }
+
+  // ── Table render ───────────────────────────────────────────
+  function setFilter(btn) {
+    document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderTable();
+  }
+
+  function renderTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    document.getElementById('searchClear').style.display = search ? 'block' : 'none';
+    const container = document.getElementById('attendeeList');
+    let rows = [...records];
+
+    if (activeFilter === 'checked-in')  rows = rows.filter(r => r.checked_in);
+    if (activeFilter === 'not-checked') rows = rows.filter(r => !r.checked_in);
+    if (search) {
+      rows = rows.filter(r => {
+        const name = `${r.first_name} ${r.last_name}`.toLowerCase();
+        return name.includes(search) || (r.email || '').toLowerCase().includes(search);
+      });
+    }
+
+    if (rows.length === 0) {
+      container.innerHTML = '<div class="empty">No attendees match your criteria.</div>';
+      return;
+    }
+
+    let html = `
+      <table><thead><tr>
+        <th>Name</th><th>Email</th><th>Table</th><th>Room</th><th>Status</th><th>Check-In Time</th>
+      </tr></thead><tbody>`;
+
+    rows.forEach(r => {
+      const name   = [r.first_name, r.last_name].filter(Boolean).join(' ') || '—';
+      const badge  = r.checked_in
+        ? '<span class="badge badge-in">&#10003; Checked In</span>'
+        : '<span class="badge badge-out">Not Checked-In</span>';
+      const time   = r.check_in_time
+        ? new Date(r.check_in_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+        : '—';
+      html += `<tr><td>${name}</td><td>${r.email||'—'}</td><td>${r.table_number||'—'}</td><td>${r.room||'—'}</td><td>${badge}</td><td>${time}</td></tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function clearSearch() {
+    const input = document.getElementById('searchInput');
+    input.value = '';
+    input.focus();
+    renderTable();
+  }
+
+  // ── Normalise a spreadsheet row ────────────────────────────
+  function normaliseRow(row) {
+    return {
+      first_name:    row['first_name']   || row['First Name']   || '',
+      last_name:     row['last_name']    || row['Last Name']    || '',
+      email:         (row['email']       || row['Email']        || row['Email Address'] || '').toLowerCase().trim(),
+      table_number:  row['table_number'] || row['Table Number'] || row['Table #'] || '',
+      room:          row['room']         || row['Room']         || '',
+      checked_in:    false,
+      check_in_time: null,
+    };
+  }
+
+  // ── File upload ────────────────────────────────────────────
+  document.getElementById('fileInput').addEventListener('change', async function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    document.getElementById('fileName').textContent = file.name;
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar  = document.getElementById('progressBar');
+    progressWrap.style.display = 'block';
+    progressBar.style.width    = '10%';
+
+    const reader = new FileReader();
+
+    reader.onload = async function (e) {
+      try {
+        progressBar.style.width = '30%';
+
+        // SheetJS parses CSV, XLSX, and XLS identically from an array buffer.
+        // It correctly handles quoted commas and \r\n line endings, unlike a manual split.
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+        const json     = XLSX.utils.sheet_to_json(sheet);
+
+        progressBar.style.width = '50%';
+
+        if (!json || json.length === 0) {
+          showAlert('error', 'The file appears to be empty.');
+          progressWrap.style.display = 'none';
+          return;
+        }
+
+        // Keep anyone with a name. Guests without an email can still be
+        // checked in by a volunteer using the name search.
+        const rows = json.map(normaliseRow)
+          .filter(r => r.email.length > 0 || (r.last_name || '').trim().length > 0);
+
+        if (rows.length === 0) {
+          showAlert('error', 'No valid rows found. Ensure rows have a last name or an email address.');
+          progressWrap.style.display = 'none';
+          return;
+        }
+
+        progressBar.style.width = '70%';
+
+        if (LOCAL_MODE) {
+          // Store in localStorage — no Supabase
+          saveLocalRecords(rows);
+          records = rows;
+          progressBar.style.width = '100%';
+          showAlert('success', `Loaded ${rows.length} attendees in local mode.`);
+          updateStats();
+          renderTable();
+          document.getElementById('downloadBtn').disabled = false;
+          document.getElementById('resetBtn').disabled    = false;
+          document.getElementById('lastRefresh') &&
+            (document.getElementById('lastRefresh').textContent =
+              new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        } else {
+          // Push to Supabase
+          const { error: delErr } = await db.from(CONFIG.tableName).delete().neq('id', 0);
+          if (delErr) throw delErr;
+
+          const BATCH = 500;
+          for (let i = 0; i < rows.length; i += BATCH) {
+            const { error: insErr } = await db.from(CONFIG.tableName).insert(rows.slice(i, i + BATCH));
+            if (insErr) throw insErr;
+            progressBar.style.width = (70 + Math.round(((i + BATCH) / rows.length) * 25)) + '%';
+          }
+
+          progressBar.style.width = '100%';
+          showAlert('success', `Uploaded ${rows.length} attendees successfully.`);
+          await loadData();
+        }
+
+      } catch (err) {
+        console.error(err);
+        showAlert('error', 'Upload failed: ' + (err.message || 'unknown error'));
+      } finally {
+        setTimeout(() => { progressWrap.style.display = 'none'; progressBar.style.width = '0%'; }, 1000);
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+
+  // ── Load data (supabase mode) ──────────────────────────────
+  async function loadData() {
+    if (LOCAL_MODE) {
+      // In local mode, pull from localStorage (updated by check-in page)
+      records = getLocalRecords();
+      updateStats();
+      renderTable();
+      if (records.length > 0) {
+        document.getElementById('downloadBtn').disabled = false;
+        document.getElementById('resetBtn').disabled    = false;
+      }
+      return;
+    }
+
+    try {
+      const { data, error } = await db
+        .from(CONFIG.tableName)
+        .select('*')
+        .order('last_name', { ascending: true });
+
+      if (error) throw error;
+
+      records = data || [];
+      updateStats();
+      renderTable();
+
+      document.getElementById('lastRefresh').textContent =
+        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      if (records.length > 0) {
+        document.getElementById('downloadBtn').disabled = false;
+        document.getElementById('resetBtn').disabled    = false;
+      }
+    } catch (err) {
+      console.error(err);
+      showAlert('error', 'Could not connect to database: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  // ── Download ───────────────────────────────────────────────
+  function downloadFile() {
+    if (records.length === 0) { showAlert('error', 'No data to download.'); return; }
+
+    // In local mode, merge in any check-ins from the check-in page
+    const source = LOCAL_MODE ? getLocalRecords() : records;
+
+    const rows = source.map(r => ({
+      first_name:    r.first_name    || '',
+      last_name:     r.last_name     || '',
+      email:         r.email         || '',
+      table_number:  r.table_number  || '',
+      room:          r.room          || '',
+      checked_in:    r.checked_in ? 'Yes' : 'No',
+      check_in_time: r.check_in_time ? new Date(r.check_in_time).toLocaleString() : '',
+    }));
+
+    const ws  = XLSX.utils.json_to_sheet(rows);
+    const wb  = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Registrations');
+    const ts  = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16);
+    XLSX.writeFile(wb, `checkin_export_${ts}.xlsx`);
+    showAlert('success', 'File downloaded.');
+  }
+
+  // ── Reset ──────────────────────────────────────────────────
+  async function resetData() {
+    if (!confirm('Delete ALL attendee records? This cannot be undone.')) return;
+    if (!confirm('Second confirmation: permanently wipe all data?'))     return;
+
+    if (LOCAL_MODE) {
+      localStorage.removeItem('localRecords');
+      records = [];
+      updateStats();
+      renderTable();
+      document.getElementById('downloadBtn').disabled = true;
+      document.getElementById('resetBtn').disabled    = true;
+      document.getElementById('fileInput').value      = '';
+      document.getElementById('fileName').textContent = 'No file chosen';
+      showAlert('success', 'Local data cleared.');
+      return;
+    }
+
+    try {
+      const { error } = await db.from(CONFIG.tableName).delete().neq('id', 0);
+      if (error) throw error;
+      records = [];
+      updateStats();
+      renderTable();
+      document.getElementById('downloadBtn').disabled = true;
+      document.getElementById('resetBtn').disabled    = true;
+      document.getElementById('fileInput').value      = '';
+      document.getElementById('fileName').textContent = 'No file chosen';
+      showAlert('success', 'All data cleared.');
+    } catch (err) {
+      console.error(err);
+      showAlert('error', 'Reset failed: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  // ── Auth gate ──────────────────────────────────────────────
+  let refreshTimer = null;
+
+  function showLogin() {
+    document.getElementById('loginOverlay').classList.add('show');
+    document.getElementById('loginEmail').focus();
+  }
+
+  function startApp() {
+    document.getElementById('loginOverlay').classList.remove('show');
+    if (!LOCAL_MODE) {
+      document.getElementById('signOutBtn').style.display = 'inline-block';
+    }
+    loadData();
+    if (!LOCAL_MODE && !refreshTimer) {
+      refreshTimer = setInterval(loadData, 5000);
+    }
+  }
+
+  async function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPassword').value;
+    const btn   = document.getElementById('loginBtn');
+    const out   = document.getElementById('loginResult');
+
+    out.innerHTML = '';
+    if (!email || !pass) {
+      out.innerHTML = '<div class="login-error">Enter both email and password.</div>';
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = 'Signing in…';
+
+    try {
+      const { error } = await db.auth.signInWithPassword({ email: email, password: pass });
+      if (error) {
+        console.error(error);
+        out.innerHTML = '<div class="login-error">Sign in failed. Check the email and password.</div>';
+        document.getElementById('loginPassword').value = '';
+        return;
+      }
+      document.getElementById('loginPassword').value = '';
+      startApp();
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Sign In';
+    }
+  }
+
+  async function handleSignOut() {
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    await db.auth.signOut();
+    records = [];
+    location.reload();
+  }
+
+  document.getElementById('loginPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+  });
+  document.getElementById('loginEmail').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+  });
+
+  // ── Init ───────────────────────────────────────────────────
+  (async function boot() {
+    if (LOCAL_MODE) { startApp(); return; }
+    const { data } = await db.auth.getSession();
+    if (data && data.session) { startApp(); } else { showLogin(); }
+  })();
+</script>
+</body>
+</html>
