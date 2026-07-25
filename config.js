@@ -8,7 +8,7 @@ const CONFIG = {
   // ── Data Mode ─────────────────────────────────────────────
   // "local"   = reads from a local CSV file (no Supabase needed)
   // "supabase" = reads from and writes to Supabase (live/production)
-  dataMode: "local",
+  dataMode: "supabase",
   localCsvFile: "data/registrations.csv",  // Path relative to index.html
 
   // ── Organization ─────────────────────────────────────────
