@@ -460,7 +460,16 @@
     // ── Supabase (only initialised in supabase mode) ─────────
     let db = null;
     if (!LOCAL_MODE) {
-      db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+      // No session, ever. This page must always call as `anon`, even if the
+      // admin page signed in earlier in the same browser.
+      db = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey, {
+        auth: {
+          persistSession:      false,
+          autoRefreshToken:    false,
+          detectSessionInUrl:  false,
+          storageKey:          'crescendo-anon-guest'
+        }
+      });
     }
 
     // ── In-memory store for local mode ───────────────────────
