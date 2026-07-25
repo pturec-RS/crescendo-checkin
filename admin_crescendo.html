@@ -563,7 +563,7 @@
 
     let html = `
       <table><thead><tr>
-        <th>Name</th><th>Email</th><th>Table</th><th>Room</th><th>Status</th><th>Check-In Time</th>
+        <th>Name</th><th>Email</th><th>Table</th><th>Room</th><th>Status</th><th>Check-In Time</th><th>By</th>
       </tr></thead><tbody>`;
 
     rows.forEach(r => {
@@ -574,7 +574,10 @@
       const time   = r.check_in_time
         ? new Date(r.check_in_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
         : '—';
-      html += `<tr><td>${name}</td><td>${r.email||'—'}</td><td>${r.table_number||'—'}</td><td>${r.room||'—'}</td><td>${badge}</td><td>${time}</td></tr>`;
+      const method = r.checkin_method === 'volunteer' ? 'Volunteer'
+                   : r.checkin_method === 'self'      ? 'Self'
+                   : '—';
+      html += `<tr><td>${name}</td><td>${r.email||'—'}</td><td>${r.table_number||'—'}</td><td>${r.room||'—'}</td><td>${badge}</td><td>${time}</td><td>${method}</td></tr>`;
     });
 
     html += '</tbody></table>';
@@ -740,6 +743,9 @@
       room:          r.room          || '',
       checked_in:    r.checked_in ? 'Yes' : 'No',
       check_in_time: r.check_in_time ? new Date(r.check_in_time).toLocaleString() : '',
+      checked_in_by: r.checkin_method === 'volunteer' ? 'Volunteer'
+                   : r.checkin_method === 'self'      ? 'Self'
+                   : '',
     }));
 
     const ws  = XLSX.utils.json_to_sheet(rows);
