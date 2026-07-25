@@ -300,7 +300,11 @@
     #loginOverlay {
       position: fixed;
       inset: 0;
-      background: #eef0fd;
+      background:
+        linear-gradient(rgba(20, 15, 10, 0.75), rgba(20, 15, 10, 0.85)),
+        url('logo/background.jpg');
+      background-size: cover;
+      background-position: center 20%;
       display: none;
       align-items: center;
       justify-content: center;
