@@ -393,6 +393,7 @@
     </div>
     <div class="header-right" id="refreshInfo">
       Auto-refresh &nbsp;|&nbsp; Last updated: <span id="lastRefresh">—</span>
+      <span id="whoami" style="display:none">&nbsp;|&nbsp; <strong></strong></span>
       <button type="button" class="btn-signout" id="signOutBtn" onclick="handleSignOut()"
               style="display:none">Sign out</button>
     </div>
@@ -803,6 +804,13 @@
     document.getElementById('loginOverlay').classList.remove('show');
     if (!LOCAL_MODE) {
       document.getElementById('signOutBtn').style.display = 'inline-block';
+      db.auth.getUser().then(({ data }) => {
+        if (data && data.user) {
+          const el = document.getElementById('whoami');
+          el.querySelector('strong').textContent = data.user.email;
+          el.style.display = 'inline';
+        }
+      });
     }
     loadData();
     if (!LOCAL_MODE && !refreshTimer) {
