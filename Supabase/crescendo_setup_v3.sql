@@ -54,7 +54,8 @@ create table if not exists public.registrations (
   room           text not null default ''::text,
   checked_in     boolean not null default false,
   check_in_time  timestamptz,
-  checkin_method text
+  checkin_method text,
+  dietary        text not null default ''::text
 );
 
 do $$
@@ -409,6 +410,187 @@ begin
 
   get diagnostics v_rows = row_count;
   return v_rows > 0;
+end;
+$function$;
+
+
+-- ============================================================================
+-- SECTION 5B — CHECK-IN SWITCH AND DIETARY FLAG  (added 2026-10-14)
+--
+-- SUPERSEDES the guest_lookup, guest_checkin, guest_checkin_volunteer and
+-- guest_checkin_by_id definitions in Section 5 above.
+--
+--   * checkin_status() reads the 'checkin_open' setting, which the admin
+--     dashboard switch flips. Missing, or anything other than 'true', = closed.
+--   * guest_lookup and guest_checkin raise 'Check-in not open' while closed.
+--     The volunteer functions are exempt on purpose.
+--   * The three check-in functions return has_dietary (boolean) and NEVER the
+--     dietary text itself. The text is readable only by the signed-in admin.
+-- ============================================================================
+
+insert into public.app_settings (key, value)
+values ('checkin_open', 'false')
+on conflict (key) do nothing;
+
+create or replace function public.checkin_status()
+returns table(is_open boolean, opens_at timestamptz)
+language plpgsql
+security definer
+set search_path to 'public', 'pg_temp'
+as $function$
+begin
+  return query
+    select coalesce((select s.value = 'true'
+                       from public.app_settings s
+                      where s.key = 'checkin_open'), false),
+           null::timestamptz;
+end;
+$function$;
+
+revoke all on function public.checkin_status() from public;
+grant execute on function public.checkin_status() to anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.guest_lookup(p_emails text[])
+ RETURNS TABLE(first_name text, last_name text, email text, checked_in boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_emails text[];
+begin
+  if not (select s.is_open from public.checkin_status() s) then
+    raise exception 'Check-in not open';
+  end if;
+
+  if p_emails is null or array_length(p_emails, 1) is null
+     or array_length(p_emails, 1) > 10 then
+    raise exception 'Invalid request';
+  end if;
+
+  select array_agg(lower(btrim(e)))
+    into v_emails
+    from unnest(p_emails) as e
+   where length(btrim(e)) > 0;
+
+  return query
+    select r.first_name, r.last_name, r.email, r.checked_in
+      from public.registrations r
+     where r.email = any (v_emails);
+end;
+$function$;
+
+drop function if exists public.guest_checkin(text[]);
+drop function if exists public.guest_checkin_volunteer(text, text[]);
+drop function if exists public.guest_checkin_by_id(text, bigint[]);
+
+CREATE FUNCTION public.guest_checkin(p_emails text[])
+ RETURNS TABLE(first_name text, last_name text, email text, table_number text, room text, checked_in boolean, check_in_time timestamp with time zone, has_dietary boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_emails text[];
+begin
+  if not (select s.is_open from public.checkin_status() s) then
+    raise exception 'Check-in not open';
+  end if;
+
+  if p_emails is null or array_length(p_emails, 1) is null
+     or array_length(p_emails, 1) > 10 then
+    raise exception 'Invalid request';
+  end if;
+
+  select array_agg(lower(btrim(e)))
+    into v_emails
+    from unnest(p_emails) as e
+   where length(btrim(e)) > 0;
+
+  update public.registrations r
+     set checked_in     = true,
+         check_in_time  = now(),
+         checkin_method = 'self'
+   where r.email = any (v_emails)
+     and r.checked_in = false;
+
+  return query
+    select r.first_name, r.last_name, r.email,
+           r.table_number, r.room, r.checked_in, r.check_in_time,
+           (btrim(r.dietary) <> '')
+      from public.registrations r
+     where r.email = any (v_emails);
+end;
+$function$;
+
+CREATE FUNCTION public.guest_checkin_volunteer(p_pin text, p_emails text[])
+ RETURNS TABLE(first_name text, last_name text, email text, table_number text, room text, checked_in boolean, check_in_time timestamp with time zone, has_dietary boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_emails text[];
+begin
+  if not public.volunteer_pin_check(p_pin) then
+    raise exception 'Invalid request';
+  end if;
+
+  if p_emails is null or array_length(p_emails, 1) is null
+     or array_length(p_emails, 1) > 10 then
+    raise exception 'Invalid request';
+  end if;
+
+  select array_agg(lower(btrim(e)))
+    into v_emails
+    from unnest(p_emails) as e
+   where length(btrim(e)) > 0;
+
+  update public.registrations r
+     set checked_in     = true,
+         check_in_time  = now(),
+         checkin_method = 'volunteer'
+   where r.email = any (v_emails)
+     and r.checked_in = false;
+
+  return query
+    select r.first_name, r.last_name, r.email,
+           r.table_number, r.room, r.checked_in, r.check_in_time,
+           (btrim(r.dietary) <> '')
+      from public.registrations r
+     where r.email = any (v_emails);
+end;
+$function$;
+
+CREATE FUNCTION public.guest_checkin_by_id(p_pin text, p_ids bigint[])
+ RETURNS TABLE(id bigint, first_name text, last_name text, email text, table_number text, room text, checked_in boolean, check_in_time timestamp with time zone, has_dietary boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+  if not public.volunteer_pin_check(p_pin) then
+    raise exception 'Invalid request';
+  end if;
+
+  if p_ids is null or array_length(p_ids, 1) is null
+     or array_length(p_ids, 1) > 10 then
+    raise exception 'Invalid request';
+  end if;
+
+  update public.registrations r
+     set checked_in     = true,
+         check_in_time  = now(),
+         checkin_method = 'volunteer'
+   where r.id = any (p_ids)
+     and r.checked_in = false;
+
+  return query
+    select r.id, r.first_name, r.last_name, r.email,
+           r.table_number, r.room, r.checked_in, r.check_in_time,
+           (btrim(r.dietary) <> '')
+      from public.registrations r
+     where r.id = any (p_ids);
 end;
 $function$;
 
