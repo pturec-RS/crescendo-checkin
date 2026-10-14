@@ -15,7 +15,10 @@ const CONFIG = {
   orgName:    "UMKC Conservatory",
   footerText: "© 2026 Rocketship Strategies",
   eventName:  "Welcome To Crescendo 2026",
-  logoFile:   "UMKC Logo.png",
+    logoFile:   "UMKC Logo.png",
+
+  // Shown on the check-in success screen for guests with dietary needs.
+  dietaryMessage: "Your dietary request has been noted. Please find the placard at your table to place at your seat so our servers are aware.",
 
   // ── Brand Colors ─────────────────────────────────────────
   primaryColor:     "#667eea",
