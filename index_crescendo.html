@@ -405,6 +405,11 @@
   <div class="card">
     <div class="mode-banner" id="modeBanner">⚠ LOCAL MODE — check-ins are not saved to the database</div>
 
+        <div id="closedView" style="display:none; text-align:center;">
+      <h2>Check-in not yet open</h2>
+      <p class="sub" id="closedMsg" style="white-space:pre-line;"></p>
+    </div>
+
     <div id="lookupView">
       <h2>Welcome!</h2>
       <p class="sub">Please enter your email address to begin check in.</p>
@@ -585,9 +590,10 @@
     }
 
     async function lookupSupabase(emails) {
-      const { data, error } = await db.rpc('guest_lookup', { p_emails: emails });
+        const { data, error } = await db.rpc('guest_lookup', { p_emails: emails });
       if (error) {
         console.error(error);
+        if (/not open/i.test(error.message || '')) { checkWindow(); return null; }
         document.getElementById('result').innerHTML =
           '<div class="msg msg-error">Something went wrong. Please try again or see a staff member.</div>';
         return null;
@@ -659,9 +665,10 @@
     }
 
     async function checkinSupabase(emails) {
-      const { data, error } = await db.rpc('guest_checkin', { p_emails: emails });
+        const { data, error } = await db.rpc('guest_checkin', { p_emails: emails });
       if (error) {
         console.error(error);
+        if (/not open/i.test(error.message || '')) { checkWindow(); return null; }
         document.getElementById('resultsCards').innerHTML +=
           '<div class="msg msg-error" style="margin-top:12px;">Something went wrong. Please try again or see a staff member.</div>';
         return null;
@@ -729,8 +736,34 @@
       document.getElementById('lookupView').style.display  = 'block';
       document.getElementById('resultsView').style.display = 'none';
       document.getElementById('successView').style.display = 'none';
-      document.querySelector('.email-input').focus();
+          document.querySelector('.email-input').focus();
     }
+
+    // ── Check-in window ───────────────────────────────────────
+    function showClosed(opensAt) {
+      const when = opensAt
+        ? new Date(opensAt).toLocaleString('en-US', {
+            timeZone: 'America/Chicago', weekday: 'long', month: 'long',
+            day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+        : '';
+      document.getElementById('closedMsg').textContent =
+        when ? 'Check-in will open ' + when + '.\nPlease come back then.'
+            : 'Check-in opens Saturday, November 14 at 6:00 PM.\nPlease come back then.';
+      document.getElementById('lookupView').style.display  = 'none';
+      document.getElementById('resultsView').style.display = 'none';
+      document.getElementById('successView').style.display = 'none';
+      document.getElementById('closedView').style.display  = 'block';
+    }
+
+    async function checkWindow() {
+      if (LOCAL_MODE) return;
+      try {
+        const { data, error } = await db.rpc('checkin_status');
+        if (error || !data || !data[0]) return;   // server still enforces the gate
+        if (!data[0].is_open) showClosed(data[0].opens_at);
+      } catch (e) { console.error(e); }
+    }
+    checkWindow();
   </script>
 </body>
 </html>
