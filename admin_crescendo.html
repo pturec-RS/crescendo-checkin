@@ -542,6 +542,12 @@
     renderTable();
   }
 
+    function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
   function renderTable() {
     const search = document.getElementById('searchInput').value.toLowerCase();
     document.getElementById('searchClear').style.display = search ? 'block' : 'none';
@@ -578,7 +584,7 @@
       const method = r.checkin_method === 'volunteer' ? 'Volunteer'
                    : r.checkin_method === 'self'      ? 'Self'
                    : '—';
-      html += `<tr><td>${name}</td><td>${r.email||'—'}</td><td>${r.table_number||'—'}</td><td>${r.room||'—'}</td><td>${badge}</td><td>${time}</td><td>${method}</td></tr>`;
+      html += `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(r.email||'—')}</td><td>${escapeHtml(r.table_number||'—')}</td><td>${escapeHtml(r.room||'—')}</td><td>${badge}</td><td>${time}</td><td>${method}</td></tr>`;
     });
 
     html += '</tbody></table>';
