@@ -1146,7 +1146,7 @@
         const group = groups[table];
         const names = group.people.map(a => fullName(a)).join('\n');
         const roomBadge = group.room
-          ? `<div class="room-badge">${escapeHtml(group.room)} Room</div>`
+          ? `<div class="room-badge">${escapeHtml(group.room)}</div>`
           : '';
         const dietaryNote = group.people.some(a => a.has_dietary || (a.dietary || '').trim() !== '')
           ? `<div style="margin:16px 0;padding:12px 14px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:10px;font-size:14px;line-height:1.4;text-align:center;">${escapeHtml(CONFIG.dietaryMessage || '')}</div>`
